@@ -86,11 +86,14 @@ async function getSite(page, site, date) {
 }
 
 function setReportParameters({ site, date }) {
-  function findOptionIndex(select, predicate) {
-    return Array.from(select.querySelectorAll('option')).findIndex(predicate);
-  }
-
   const get = selector => document.querySelector(selector);
+
+  function selectOption(selector, predicate) {
+    const select = get(selector);
+    const optionIndex = Array.from(select.querySelectorAll('option'))
+      .findIndex(predicate);
+    select.selectedIndex = optionIndex;
+  }  
 
   //get('form').scrollIntoView(); //uncomment for non-headless mode
 
@@ -101,23 +104,13 @@ function setReportParameters({ site, date }) {
     //but this input exists (but is hidden) on subsequent page loads
 
   //select site
-  const siteSelect = get('select[name="user_site"]'),
-        optionIndex = findOptionIndex(siteSelect, o => o.label.includes(site));
-    
-  siteSelect.selectedIndex = optionIndex;    
+  selectOption('select[name="user_site"]', o => o.label.includes(site))
 
   //select date    
-  const [ year, month, day ] = date.split('-'),
-        selectYear = get('select[name="user_year"]'),   
-        selectMonth = get('select[name="user_month"]'),
-        selectDay = get('select[name="user_day"]'),
-        yearIndex = findOptionIndex(selectYear, o => o.label === year),
-        monthIndex = +month - 1,
-        dayIndex = findOptionIndex(selectDay, o => o.label === day);
-
-  selectYear.selectedIndex = yearIndex;
-  selectMonth.selectedIndex = monthIndex;
-  selectDay.selectedIndex = dayIndex;
+  const [ year, month, day ] = date.split('-');
+  selectOption('select[name="user_year"]', o => o.label === year);
+  selectOption('select[name="user_month"]', (o, i) => i === +month - 1);
+  selectOption('select[name="user_day"]', o => o.label === day);
 
   return get('input[value="Generate Report"]').click();
 }
