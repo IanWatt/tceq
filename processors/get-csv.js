@@ -1,14 +1,17 @@
-require('dotenv').config()
 const moment = require('moment');
 const puppeteer = require('puppeteer');
 const fs = require('fs');
 const readlineSync = require('readline-sync');
 
-const { TCEQ_URL } = process.env,
+const TCEQ_URL = 'https://www.tceq.texas.gov/cgi-bin/compliance/monops/agc_daily_summary.pl',
       defaultDate = moment().subtract(2, 'days').toISOString().split('T')[0],
       defaultDays = 1,
-      date = readlineSync.question(`What date do you want to start from ? (${defaultDate}) `) || defaultDate,
-      days = readlineSync.question(`How many days do you want to go back? (${defaultDays}) `) || defaultDays,
+      date = readlineSync.question(
+        `What date do you want to start from ? (${defaultDate}) `
+      ) || defaultDate,
+      days = readlineSync.question(
+        `How many days do you want to go back? (${defaultDays}) `
+      ) || defaultDays,
       dates = getDates(moment(date), days),
       sites = [
         //search, alias
@@ -44,7 +47,7 @@ function debug(message) {
 
 (async () => {
   debug('Launching puppeteer');
-  const browser = await puppeteer.launch({ headless: false });
+  const browser = await puppeteer.launch({ headless: true });
 
   debug('Creating new page');
   const page = await browser.newPage();
@@ -87,38 +90,38 @@ function setReportParameters({ site, date }) {
     return Array.from(select.querySelectorAll('option')).findIndex(predicate);
   }
 
-  document.querySelector('select').scrollIntoView({ behavior: 'smooth'});
+  const get = selector => document.querySelector(selector);
 
-  const siteSelect = document.querySelector('select[name="user_site"]'),
-        optionIndex = findOptionIndex(siteSelect, o => o.label.includes(site)),
-        chooseCSV = document.querySelector('input[value="comma"]'),
-        generateReport = document.querySelector('input[value="Generate Report"]');
+  //get('form').scrollIntoView(); //uncomment for non-headless mode
+
+  //specify options
+  get('input[value="comma"]').click(); //choose csv format
+  get('input[value="user"]').click(); //use custom date
+    //this only has to be done on the first page, b/c "today" is also an option
+    //but this input exists (but is hidden) on subsequent page loads
+
+  //select site
+  const siteSelect = get('select[name="user_site"]'),
+        optionIndex = findOptionIndex(siteSelect, o => o.label.includes(site));
     
-    document.querySelector('form').scrollIntoView();
-    chooseCSV.click();
+  siteSelect.selectedIndex = optionIndex;    
 
-    //select site
-    siteSelect.selectedIndex = optionIndex;
+  //select date    
+  const [ year, month, day ] = date.split('-'),
+        selectYear = get('select[name="user_year"]'),   
+        selectMonth = get('select[name="user_month"]'),
+        selectDay = get('select[name="user_day"]'),
+        yearIndex = findOptionIndex(selectYear, o => o.label === year),
+        monthIndex = +month - 1,
+        dayIndex = findOptionIndex(selectDay, o => o.label === day);
 
-    //select date    
-    const [ year, month, day ] = date.split('-'),
-          selectYear = document.querySelector('select[name="user_year"]'),          
-          selectMonth = document.querySelector('select[name="user_month"]'),
-          selectDay = document.querySelector('select[name="user_day"]'),
-          yearIndex = findOptionIndex(selectYear, o => o.label === year),
-          monthIndex = +month - 1,
-          dayIndex = findOptionIndex(selectDay, o => o.label === day);
+  selectYear.selectedIndex = yearIndex;
+  selectMonth.selectedIndex = monthIndex;
+  selectDay.selectedIndex = dayIndex;
 
-    selectYear.selectedIndex = yearIndex;
-    selectMonth.selectedIndex = monthIndex;
-    selectDay.selectedIndex = dayIndex;
-
-    setTimeout(() => generateReport.click(), 500);    
-
-  return null;
+  return get('input[value="Generate Report"]').click();
 }
 
 function getCSV() {
-  document.querySelector('pre').scrollIntoView();
   return document.querySelector('pre').innerHTML;
 }
